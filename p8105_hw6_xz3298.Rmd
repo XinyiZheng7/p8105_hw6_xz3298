@@ -11,11 +11,15 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Problem 2
 
+## load necessary packages
 ```{r}
 library(dplyr)
 library(ggplot2)
+library(broom)
+library(rnoaa)
+library(tidyverse)
 ```
-
+## import the data
 ```{r}
 weather_df = 
   rnoaa::meteo_pull_monitors(
@@ -30,8 +34,85 @@ weather_df =
   select(name, id, everything())
 ```
 
+```{r}
+# Function to perform linear regression and calculate required statistics
+analyze_bootstrap_sample <- function(sample) {
+  model <- lm(tmax ~ tmin + prcp, data = sample)
+  r_squared <- glance(model)$r.squared
+  coefs <- coef(model)
+  log_b1_b2 <- log(abs(coefs["tmin"] * coefs["prcp"])) # using abs() to avoid NaNs from negative values
+  return(c(r_squared, log_b1_b2))
+}
+
+# Bootstrap analysis
+set.seed(1)
+bootstrap_results <- replicate(5000, {
+  sample_indices <- sample(1:nrow(weather_df), replace = TRUE)
+  sample_data <- weather_df[sample_indices, ]
+  analyze_bootstrap_sample(sample_data)
+}, simplify = "array")
+
+# Convert results to a data frame
+bootstrap_results_df <- data.frame(t(bootstrap_results))
+names(bootstrap_results_df) <- c("r_squared", "log_b1_b2")
+
+# Remove NA and NaN values
+bootstrap_results_df <- na.omit(bootstrap_results_df)
+
+# Plotting distributions
+ggplot(bootstrap_results_df, aes(x = r_squared)) +
+  geom_histogram(binwidth = 0.01, fill = "blue", color = "black") +
+  labs(title = "Distribution of r^2")
+
+ggplot(bootstrap_results_df, aes(x = log_b1_b2)) +
+  geom_histogram(binwidth = 0.1, fill = "red", color = "black") +
+  labs(title = "Distribution of log(β̂1 * β̂2)")
+
+# Calculating confidence intervals with na.rm = TRUE
+quantile(bootstrap_results_df$r_squared, c(0.025, 0.975), na.rm = TRUE)
+quantile(bootstrap_results_df$log_b1_b2, c(0.025, 0.975), na.rm = TRUE)
+
+```
+
 # Problem 3
 ```{r}
+library(modelr)
+# import dataset
+birth_data <- read.csv('data/birthweight.csv')
 
+# Convert categorical variables to factors
+categorical_vars <- c('babysex', 'frace', 'mrace', 'malform')
+birth_data[categorical_vars] <- lapply(birth_data[categorical_vars], factor)
+
+# Check for missing data
+summary(birth_data)
+
+# Initial Regression Model
+model_initial <- lm(bwt ~ gaweeks + delwt + ppbmi + smoken, data = birth_data)
+
+# Check residuals
+birth_data %>% 
+  add_predictions(model_initial) %>% 
+  add_residuals(model_initial) %>% 
+  ggplot(aes(x = pred, y = resid)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(x = "Fitted values", y = "Residuals")
+
+# Model 1: Length and Gestational Age
+model_1 <- lm(bwt ~ blength + gaweeks, data = birth_data)
+
+# Model 2: Head Circumference, Length, Sex, and Interactions
+model_2 <- lm(bwt ~ bhead * blength * babysex, data = birth_data)
+
+# Cross-Validation
+cv_model_initial <- birth_data %>% crossv_mc(100) %>% mutate(resamples = map(train, ~lm(bwt ~ gaweeks + delwt + ppbmi + smoken, data = .x)))
+cv_model_1 <- birth_data %>% crossv_mc(100) %>% mutate(resamples = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)))
+cv_model_2 <- birth_data %>% crossv_mc(100) %>% mutate(resamples = map(train, ~lm(bwt ~ bhead * blength * babysex, data = .x)))
+
+# Calculate Prediction Errors
+prediction_error_initial <- cv_model_initial %>% mutate(rmse = map_dbl(resamples, ~rmse(model = .x, data = .x$test)))
+prediction_error_1 <- cv_model_1 %>% mutate(rmse = map_dbl(resamples, ~rmse(model = .x, data = .x$test)))
+prediction_error_2 <- cv_model_2 %>% mutate(rmse = map_dbl(resamples, ~rmse(model = .x, data = .x$test)))
 ```
 
