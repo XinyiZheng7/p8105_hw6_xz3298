@@ -91,9 +91,9 @@ quantile(bootstrap_results_df$log_b1_b2, c(0.025, 0.975), na.rm = TRUE)
 ## Findings
 note:When I calculated log(beta_1 * beta_2), I used the function abs() to avoid NaNs from negative values.
 
-From the distribution plot, we find that r^2 approximately follows normal distribution.( need to check) The mean estimate is 0.92 with 95% CI (XXX,XXX). 
+From the distribution plot, we find that r^2 approximately follows normal distribution.( need to check) The mean estimate is 0.92 with 95% CI (0.89,0.94). 
 
-The distribution of log (beta_1 * beta_2) is skewed to the left, so it doesn't follow normal distribution for sure. So we need to use bootstrap method to estimate the 95% confidence interval. The mean estimate is -6.46 with 95% CI (XXX, XXX). 
+The distribution of log (beta_1 * beta_2) is skewed to the left, so it doesn't follow normal distribution for sure. So we need to use bootstrap method to estimate the 95% confidence interval. The mean estimate is -6.46 with 95% CI (-8.59, -4.59). 
 
  
 # Problem 3
